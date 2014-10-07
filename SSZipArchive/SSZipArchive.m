@@ -30,6 +30,29 @@
 }
 
 
+#pragma mark - Class Methods
+
++ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination {
+    return [self unzipFileAtPath:path toDestination:destination delegate:nil];
+}
+
+
++ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error {
+    return [self unzipFileAtPath:path toDestination:destination overwrite:overwrite password:password error:error delegate:nil];
+}
+
+
++ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination delegate:(id<SSZipArchiveDelegate>)delegate {
+    return [self unzipFileAtPath:path toDestination:destination overwrite:YES password:nil error:nil delegate:delegate];
+}
+
+
++ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error delegate:(id<SSZipArchiveDelegate>)delegate {
+    return [[[self alloc] init] unzipFileAtPath:path toDestination:destination overwrite:overwrite password:password error:error delegate:delegate];
+}
+
+
+
 #pragma mark - Unzipping
 
 - (void)setEncoding:(NSStringEncoding)encoding {
@@ -51,21 +74,6 @@
     NSStringEncoding encoding = CFStringConvertIANACharSetNameToEncoding((CFStringRef)encodeName);
 
     _encoding = encoding;
-}
-
-
-- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination {
-	return [self unzipFileAtPath:path toDestination:destination delegate:nil];
-}
-
-
-- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error {
-	return [self unzipFileAtPath:path toDestination:destination overwrite:overwrite password:password error:error delegate:nil];
-}
-
-
-- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination delegate:(id<SSZipArchiveDelegate>)delegate {
-	return [self unzipFileAtPath:path toDestination:destination overwrite:YES password:nil error:nil delegate:delegate];
 }
 
 
