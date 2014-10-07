@@ -10,6 +10,7 @@
 #include "zip.h"
 #import "zlib.h"
 #import "zconf.h"
+#import <UniversalDetector/UniversalDetector.h>
 
 #include <sys/stat.h>
 
@@ -21,30 +22,57 @@
 
 
 @implementation SSZipArchive {
+    BOOL _isCancelled;
 	NSString *_path;
 	NSString *_filename;
+    NSStringEncoding _encoding;
     zipFile _zip;
 }
 
 
 #pragma mark - Unzipping
 
-+ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination {
+- (void)setEncoding:(NSStringEncoding)encoding {
+
+    _encoding = encoding;
+    return;
+
+    NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
+
+    if (encoding == NSUTF8StringEncoding || encoding == NSASCIIStringEncoding) {
+        _encoding = encoding;
+    } else {
+        _encoding = gbkEncoding;
+    }
+}
+
+
+- (void)setEncodingName:(NSString *)encodeName {
+    NSStringEncoding encoding = CFStringConvertIANACharSetNameToEncoding((CFStringRef)encodeName);
+
+    _encoding = encoding;
+}
+
+
+- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination {
 	return [self unzipFileAtPath:path toDestination:destination delegate:nil];
 }
 
 
-+ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error {
+- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error {
 	return [self unzipFileAtPath:path toDestination:destination overwrite:overwrite password:password error:error delegate:nil];
 }
 
 
-+ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination delegate:(id<SSZipArchiveDelegate>)delegate {
+- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination delegate:(id<SSZipArchiveDelegate>)delegate {
 	return [self unzipFileAtPath:path toDestination:destination overwrite:YES password:nil error:nil delegate:delegate];
 }
 
 
-+ (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error delegate:(id<SSZipArchiveDelegate>)delegate {
+- (BOOL)unzipFileAtPath:(NSString *)path toDestination:(NSString *)destination overwrite:(BOOL)overwrite password:(NSString *)password error:(NSError **)error delegate:(id<SSZipArchiveDelegate>)delegate {
+
+    _isCancelled = NO;
+
 	// Begin opening
 	zipFile zip = unzOpen((const char*)[path UTF8String]);
 	if (zip == NULL) {
@@ -145,8 +173,18 @@
 	            fileIsSymbolicLink = YES;
 	        }
 
+            //check the encoding of filename
+            [self setEncoding:[self analyzeCharacters:filename length:strlen(filename)]];
+
+            // check if it contains directory
+            NSString *strPath = [NSString  stringWithCString:filename encoding:_encoding];
+
+            if(!strPath) { //add check if the strPath is nil
+                success = NO;
+                break;
+            }
+
 			// Check if it contains directory
-			NSString *strPath = [NSString stringWithCString:filename encoding:NSUTF8StringEncoding];
 			BOOL isDirectory = NO;
 			if (filename[fileInfo.size_filename-1] == '/' || filename[fileInfo.size_filename-1] == '\\') {
 				isDirectory = YES;
@@ -259,14 +297,14 @@
 			ret = unzGoToNextFile( zip );
 
 			// Message delegate
-			if ([delegate respondsToSelector:@selector(zipArchiveDidUnzipFileAtIndex:totalFiles:archivePath:fileInfo:)]) {
+            if ([delegate respondsToSelector:@selector(zipArchiveDidUnzipFileAtIndex:totalFiles:archivePath:fileInfo:relativePath:)]) {
 				[delegate zipArchiveDidUnzipFileAtIndex:currentFileNumber totalFiles:(NSInteger)globalInfo.number_entry
-											 archivePath:path fileInfo:fileInfo];
+                                            archivePath:path fileInfo:fileInfo relativePath:strPath];
 			}
 
 			currentFileNumber++;
 		}
-	} while(ret == UNZ_OK && ret != UNZ_END_OF_LIST_OF_FILE);
+	} while(!_isCancelled && ret == UNZ_OK && ret != UNZ_END_OF_LIST_OF_FILE);
 
 	// Close
 	unzClose(zip);
@@ -367,6 +405,58 @@
 	[super dealloc];
 }
 #endif
+
+
+- (NSStringEncoding)analyzeCharacters:(const char *)src length:(size_t)srcLen {
+
+    NSStringEncoding encoding = NSUTF8StringEncoding;
+    char *sampleBuffer      = NULL;
+    int sampleBufferSize    = 128;
+
+    if (src == NULL || srcLen <= 0) {
+
+        goto EXIT;
+
+    } else {
+
+        NSData *data = nil;
+        UniversalDetector *detector = [[UniversalDetector alloc] init];
+
+        if (srcLen < sampleBufferSize) {
+            sampleBuffer = (char *)malloc(sampleBufferSize);
+
+            if (sampleBuffer == NULL) { goto EXIT; }
+
+            int i = 0;
+            int j = 0;
+
+            for (i = 0, j = 0; i < sampleBufferSize; i++) {
+                *(sampleBuffer + i) = *(src + j);
+
+                j++;
+
+                if (j >= srcLen) { j = 0; }
+            }
+
+            data = [NSData dataWithBytes:sampleBuffer length:sampleBufferSize];
+            encoding = [detector encodingWithData:data];
+
+            if(sampleBuffer != NULL) {free(sampleBuffer), sampleBuffer = NULL;}
+        } else {
+            data = [NSData dataWithBytes:src length:srcLen];
+            encoding = [detector encodingWithData:data];
+        }
+    }
+
+EXIT:
+    return encoding;
+}
+
+
+- (void)cancel
+{
+    _isCancelled = YES;
+}
 
 
 - (BOOL)open {
