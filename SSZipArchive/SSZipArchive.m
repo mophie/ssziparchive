@@ -181,15 +181,14 @@
 	            fileIsSymbolicLink = YES;
 	        }
 
-            //check the encoding of filename
+            // Check the encoding of filename
             [self setEncoding:[self analyzeCharacters:filename length:strlen(filename)]];
 
-            // check if it contains directory
+            // Get path using encoding
             NSString *strPath = [NSString  stringWithCString:filename encoding:_encoding];
 
-            if(!strPath) { //add check if the strPath is nil
-                success = NO;
-                break;
+            if (!strPath) { //add check if the strPath is nil
+                strPath = [NSString stringWithCString:filename encoding:NSASCIIStringEncoding];
             }
 
 			// Check if it contains directory
