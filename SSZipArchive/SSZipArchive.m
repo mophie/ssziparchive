@@ -118,7 +118,7 @@
 		[delegate zipArchiveWillUnzipArchiveAtPath:path zipInfo:globalInfo];
 	}
 	if ([delegate respondsToSelector:@selector(zipArchiveProgressEvent:total:)]) {
-		[delegate zipArchiveProgressEvent:currentPosition total:fileSize];
+		[delegate zipArchiveProgressEvent:(NSInteger)currentPosition total:fileSize];
 	}
 
 	NSInteger currentFileNumber = 0;
@@ -154,7 +154,7 @@
 											 archivePath:path fileInfo:fileInfo];
 			}
 			if ([delegate respondsToSelector:@selector(zipArchiveProgressEvent:total:)]) {
-				[delegate zipArchiveProgressEvent:currentPosition total:fileSize];
+				[delegate zipArchiveProgressEvent:(NSInteger)currentPosition total:fileSize];
 			}
 
 			char *filename = (char *)malloc(fileInfo.size_filename + 1);
@@ -340,7 +340,7 @@
 	}
 	// final progress event = 100%
 	if ([delegate respondsToSelector:@selector(zipArchiveProgressEvent:total:)]) {
-		[delegate zipArchiveProgressEvent:fileSize total:fileSize];
+		[delegate zipArchiveProgressEvent:(NSInteger)fileSize total:fileSize];
 	}
 
 	return success;
