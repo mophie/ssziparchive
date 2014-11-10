@@ -122,6 +122,8 @@
 	}
 
 	NSInteger currentFileNumber = 0;
+    NSInteger errorCode;
+
 	do {
 		@autoreleasepool {
 			if ([password length] == 0) {
@@ -145,6 +147,12 @@
 				unzCloseCurrentFile(zip);
 				break;
 			}
+
+            if (fileInfo.flag & 0x01 && password == nil) {
+                errorCode = -3;
+                success = NO;
+                break;
+            }
 
 			currentPosition += fileInfo.compressed_size;
 
@@ -226,21 +234,35 @@
 				continue;
 			}
 
-			if(!fileIsSymbolicLink)
-	        {
+			if (!fileIsSymbolicLink) {
+
 	            FILE *fp = fopen((const char*)[fullPath UTF8String], "wb");
+                int totalReadBytes = 0;
+
 	            while (fp) {
+
 	                int readBytes = unzReadCurrentFile(zip, buffer, 4096);
 
 	                if (readBytes > 0) {
 	                    fwrite(buffer, readBytes, 1, fp );
+                        totalReadBytes += readBytes;
 	                } else {
 	                    break;
 	                }
 	            }
 
 	            if (fp) {
+
 	                fclose(fp);
+
+                    // Is the passcode incorrect?
+                    if ((totalReadBytes == 0) && (fileInfo.flag & 0x01) && password != nil) {
+
+                        success = NO;
+                        errorCode = -5;
+                        break;
+                    }
+
 
 	                // Set the original datetime property
 	                if (fileInfo.dosDate != 0) {
@@ -320,6 +342,7 @@
     // to be set to the present time. So, when we are done, they need to be explicitly set.
     // set the modification date on all of the directories.
     NSError * err = nil;
+
     for (NSDictionary * d in directoriesModificationDates) {
         if (![[NSFileManager defaultManager] setAttributes:[NSDictionary dictionaryWithObjectsAndKeys:[d objectForKey:@"modDate"], NSFileModificationDate, nil] ofItemAtPath:[d objectForKey:@"path"] error:&err]) {
             NSLog(@"[SSZipArchive] Set attributes failed for directory: %@.", [d objectForKey:@"path"]);
@@ -327,6 +350,10 @@
         if (err) {
             NSLog(@"[SSZipArchive] Error setting directory file modification date attribute: %@",err.localizedDescription);
         }
+    }
+
+    if (errorCode != 0 && error) {
+        *error = [NSError errorWithDomain:@"SSZipArchiveErrorDomain" code:errorCode userInfo:nil];
     }
 
 #if !__has_feature(objc_arc)
