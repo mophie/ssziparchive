@@ -122,7 +122,7 @@
 	}
 
 	NSInteger currentFileNumber = 0;
-    NSInteger errorCode;
+    NSInteger errorCode = 0;
 
 	do {
 		@autoreleasepool {
