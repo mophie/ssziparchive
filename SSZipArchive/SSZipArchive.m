@@ -57,16 +57,7 @@
 
 - (void)setEncoding:(NSStringEncoding)encoding {
 
-    _encoding = encoding;
-    return;
-
-    NSStringEncoding gbkEncoding = CFStringConvertEncodingToNSStringEncoding(kCFStringEncodingGB_18030_2000);
-
-    if (encoding == NSUTF8StringEncoding || encoding == NSASCIIStringEncoding) {
-        _encoding = encoding;
-    } else {
-        _encoding = gbkEncoding;
-    }
+    _encoding = NSUTF8StringEncoding;
 }
 
 
